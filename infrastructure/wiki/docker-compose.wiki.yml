@@ -1,0 +1,45 @@
+name: arborisis-wiki
+
+services:
+  wiki:
+    image: ghcr.io/requarks/wiki:2
+    restart: unless-stopped
+    profiles: ["wiki"]
+    ports:
+      - "${WIKI_BIND_ADDR:-127.0.0.1}:3000:3000"
+    env_file:
+      - ${WIKI_ENV_FILE:-../../arborisis/.env}
+    environment:
+      DB_TYPE: postgres
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${WIKI_DB_NAME:-wikijs}
+      DB_USER: ${WIKI_DB_USER:-wikijs}
+      DB_PASS: ${WIKI_DB_PASSWORD:-change-me-wiki}
+      DB_SSL: ${WIKI_DB_SSL:-false}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_PREFIX: ${REDIS_PREFIX:-wiki:}
+    volumes:
+      - wiki-data:/wiki/data/content
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app
+      - data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  wiki-data:
+
+networks:
+  app:
+    external: true
+    name: infrastructure_app
+  data:
+    external: true
+    name: infrastructure_data

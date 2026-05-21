@@ -1,0 +1,127 @@
+/**
+ * Theme Arborisis pour Wiki.js
+ * A injecter dans l'admin Wiki.js : Administration > Theme > Code Injection > CSS
+ */
+
+:root {
+  --arbor-night: #0B1220;
+  --arbor-deep: #0F1D2E;
+  --arbor-moss: #4A6741;
+  --arbor-emerald: #34D399;
+  --arbor-sage: #8FA68E;
+  --arbor-cream: #F3F0E7;
+  --arbor-amber: #D4A574;
+}
+
+/* Global dark theme override */
+.v-application {
+  background-color: var(--arbor-night) !important;
+  color: var(--arbor-cream) !important;
+}
+
+/* Sidebar */
+.v-navigation-drawer {
+  background-color: var(--arbor-deep) !important;
+  border-right: 1px solid rgba(52, 211, 153, 0.1) !important;
+}
+
+.v-navigation-drawer .v-list-item__title {
+  color: var(--arbor-cream) !important;
+}
+
+.v-navigation-drawer .v-list-item--active .v-list-item__title {
+  color: var(--arbor-emerald) !important;
+}
+
+/* App bar */
+.v-app-bar {
+  background-color: var(--arbor-deep) !important;
+  border-bottom: 1px solid rgba(52, 211, 153, 0.1) !important;
+}
+
+/* Content area */
+.v-main {
+  background-color: var(--arbor-night) !important;
+}
+
+/* Cards */
+.v-card {
+  background-color: var(--arbor-deep) !important;
+  border: 1px solid rgba(52, 211, 153, 0.1) !important;
+}
+
+/* Primary buttons */
+.v-btn--is-elevated.v-btn--has-bg {
+  background-color: var(--arbor-emerald) !important;
+  color: var(--arbor-night) !important;
+}
+
+/* Links */
+a {
+  color: var(--arbor-emerald) !important;
+}
+
+a:hover {
+  color: var(--arbor-sage) !important;
+}
+
+/* Markdown content */
+.contents .v-content {
+  color: var(--arbor-cream) !important;
+}
+
+.contents h1,
+.contents h2,
+.contents h3,
+.contents h4 {
+  color: var(--arbor-cream) !important;
+  border-bottom: 1px solid rgba(52, 211, 153, 0.2) !important;
+}
+
+.contents code {
+  background-color: rgba(52, 211, 153, 0.1) !important;
+  color: var(--arbor-emerald) !important;
+}
+
+.contents pre {
+  background-color: var(--arbor-deep) !important;
+  border: 1px solid rgba(52, 211, 153, 0.1) !important;
+}
+
+/* Tables */
+.contents table {
+  border-color: rgba(52, 211, 153, 0.2) !important;
+}
+
+.contents th {
+  background-color: var(--arbor-deep) !important;
+  color: var(--arbor-emerald) !important;
+}
+
+.contents td {
+  border-color: rgba(52, 211, 153, 0.1) !important;
+}
+
+/* Search */
+.v-text-field--solo {
+  background-color: var(--arbor-deep) !important;
+  border: 1px solid rgba(52, 211, 153, 0.1) !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--arbor-night);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--arbor-moss);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--arbor-emerald);
+}

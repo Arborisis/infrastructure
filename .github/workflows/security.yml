@@ -1,0 +1,187 @@
+name: Security
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - main
+      - develop
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+  security-events: write
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_DIR: arborisis
+  PHP_VERSION: "8.4"
+  NODE_VERSION: "22"
+
+jobs:
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-3.0, AGPL-3.0
+
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: bcmath, curl, dom, intl, mbstring, pcntl, pdo_pgsql, zip
+          ini-values: memory_limit=-1
+          coverage: none
+          tools: composer:v2
+
+      - name: Install PHP dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Composer audit
+        working-directory: ${{ env.APP_DIR }}
+        run: composer audit --no-interaction
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: NPM audit production dependencies
+        run: |
+          set -euo pipefail
+          for project in arborisis discord-bot workers/arborisis-ai-agent workers/audio-analysis-orchestrator workers/audio-analyzer-container workers/r2-proxy; do
+            if [ -f "$project/package.json" ] && [ -f "$project/package-lock.json" ]; then
+              echo "Auditing $project"
+              npm ci --prefix "$project" --ignore-scripts
+              npm audit --prefix "$project" --omit=dev --audit-level=high
+            fi
+          done
+
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript, python
+          queries: security-extended,security-and-quality
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+
+  privacy-guard:
+    name: Privacy guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Block exact GPS fields in public surfaces
+        run: |
+          set -euo pipefail
+          targets=""
+
+          for path in \
+            arborisis/app/Http/Controllers/Api \
+            arborisis/app/Http/Resources \
+            arborisis/routes/api.php \
+            arborisis/resources/js
+          do
+            if [ -e "$path" ]; then
+              targets="${targets} ${path}"
+            fi
+          done
+
+          if [ -z "$targets" ]; then
+            echo "No public/API targets found."
+            exit 0
+          fi
+
+          if grep -RInE '\bexact_(latitude|longitude)\b' $targets; then
+            echo "Exact GPS fields must not appear in public API/UI surfaces."
+            exit 1
+          fi
+
+  security-summary:
+    name: Security summary
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - secret-scan
+      - dependency-review
+      - dependency-audit
+      - codeql
+      - privacy-guard
+
+    steps:
+      - name: Write summary
+        run: |
+          {
+            echo "## Arborisis security summary"
+            echo ""
+            echo "| Job | Result |"
+            echo "| --- | --- |"
+            echo "| Secret scan | ${{ needs.secret-scan.result }} |"
+            echo "| Dependency review | ${{ needs.dependency-review.result }} |"
+            echo "| Dependency audit | ${{ needs.dependency-audit.result }} |"
+            echo "| CodeQL | ${{ needs.codeql.result }} |"
+            echo "| Privacy guard | ${{ needs.privacy-guard.result }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on security failure
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1

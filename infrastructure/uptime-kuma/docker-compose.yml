@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3002:3001"
+    volumes:
+      - uptime-kuma-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      # Facultatif : activer la passe auth si besoin
+      # UPTIME_KUMA_USERNAME: admin
+      # UPTIME_KUMA_PASSWORD: changeme
+      TZ: Europe/Paris
+    networks:
+      - uptime-kuma-net
+    healthcheck:
+      test: ["CMD", "extra/healthcheck"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  uptime-kuma-data:
+    driver: local
+
+networks:
+  uptime-kuma-net:
+    driver: bridge

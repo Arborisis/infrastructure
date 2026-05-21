@@ -1,0 +1,416 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_DIR: arborisis
+  PHP_VERSION: "8.4"
+  NODE_VERSION: "22"
+  PYTHON_VERSION: "3.10"
+
+jobs:
+  backend-quality:
+    name: Backend quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: arborisis_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d arborisis_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+
+    env:
+      APP_ENV: testing
+      APP_DEBUG: "false"
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: arborisis_test
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      BROADCAST_CONNECTION: log
+      FILESYSTEM_DISK: local
+      AUDIO_DISK: local
+      AVATAR_DISK: local
+      STRIPE_PUBLIC_KEY: pk_test_placeholder
+      STRIPE_SECRET_KEY: sk_test_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: bcmath, curl, dom, gd, intl, mbstring, pcntl, pdo_pgsql, redis, zip
+          ini-values: memory_limit=-1
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.APP_DIR }}/vendor
+          key: composer-${{ runner.os }}-${{ hashFiles('arborisis/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install PHP dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare Laravel environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+
+      - name: Validate Composer metadata
+        run: composer validate --strict
+
+      - name: Run Pint
+        run: ./vendor/bin/pint --test
+
+      - name: Run Laravel tests
+        run: php artisan test --colors=always
+
+  frontend-quality:
+    name: Frontend quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: bcmath, curl, dom, gd, intl, mbstring, pcntl, pdo_pgsql, redis, zip
+          ini-values: memory_limit=-1
+          coverage: none
+          tools: composer:v2
+
+      - name: Install PHP dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: arborisis/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run frontend build
+        run: npm run build
+
+      - name: Run ESLint when configured
+        run: |
+          if node -e "const s=require('./package.json').scripts||{}; process.exit(s.lint ? 0 : 1)"; then
+            npm run lint
+          else
+            echo "No lint script configured."
+          fi
+
+      - name: Run typecheck when configured
+        run: |
+          if node -e "const s=require('./package.json').scripts||{}; process.exit(s.typecheck ? 0 : 1)"; then
+            npm run typecheck
+          else
+            echo "No typecheck script configured."
+          fi
+
+  python-tests:
+    name: Python audio tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}/python
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: services/python-analysis/requirements.txt
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Python tests
+        run: python -m pytest tests/ -v
+
+  security-audit:
+    name: Security audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: bcmath, curl, dom, intl, mbstring, pcntl, pdo_pgsql, zip
+          ini-values: memory_limit=-1
+          coverage: none
+          tools: composer:v2
+
+      - name: Install PHP dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Composer audit
+        working-directory: ${{ env.APP_DIR }}
+        run: composer audit --no-interaction
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: NPM audit locked projects
+        run: |
+          set -euo pipefail
+          for project in arborisis discord-bot workers/arborisis-ai-agent workers/audio-analysis-orchestrator workers/audio-analyzer-container workers/r2-proxy; do
+            if [ -f "$project/package.json" ] && [ -f "$project/package-lock.json" ]; then
+              echo "Auditing $project"
+              npm ci --prefix "$project" --ignore-scripts
+              npm audit --prefix "$project" --omit=dev --audit-level=high
+            fi
+          done
+
+      - name: Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  architecture-guard:
+    name: Architecture guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check changed files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+
+          base="${BASE_SHA:-}"
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            if git rev-parse --verify origin/develop >/dev/null 2>&1; then
+              base="origin/develop"
+            elif git rev-parse --verify origin/main >/dev/null 2>&1; then
+              base="origin/main"
+            else
+              base="$(git rev-list --max-parents=0 HEAD)"
+            fi
+          fi
+
+          if git merge-base "$base" HEAD >/dev/null 2>&1; then
+            git diff --name-only "$base"...HEAD > /tmp/changed-files.txt
+          else
+            git diff --name-only "$base" HEAD > /tmp/changed-files.txt
+          fi
+
+          echo "Changed files:"
+          cat /tmp/changed-files.txt
+
+          env_violations=""
+          large_files=""
+          debug_hits=""
+          privacy_hits=""
+
+          while IFS= read -r file; do
+            [ -n "$file" ] || continue
+
+            case "$file" in
+              *.env|*.env.*|*/.env|*/.env.*|*.dev.vars|*.dev.vars.*|*/.dev.vars|*/.dev.vars.*)
+                case "$file" in
+                  *.env.example|*/.env.example|*.dev.vars.example|*/.dev.vars.example) ;;
+                  *) env_violations="${env_violations}${file}\n" ;;
+                esac
+                ;;
+            esac
+
+            if [ -f "$file" ]; then
+              size="$(wc -c < "$file" | tr -d ' ')"
+              if [ "$size" -gt 10485760 ]; then
+                large_files="${large_files}${file} (${size} bytes)\n"
+              fi
+            fi
+
+            case "$file" in
+              arborisis/resources/js/*|workers/*.js|workers/*/*.js|workers/*.ts|workers/*/*.ts)
+                if [ -f "$file" ] && grep -nE '\b(console\.log|debugger)\b' "$file" >/tmp/debug-grep.txt; then
+                  debug_hits="${debug_hits}${file}\n$(cat /tmp/debug-grep.txt)\n"
+                fi
+                ;;
+            esac
+
+            case "$file" in
+              arborisis/app/Http/Controllers/Api/*|arborisis/app/Http/Resources/*|arborisis/routes/api.php|arborisis/resources/js/*)
+                if [ -f "$file" ] && grep -nE '\bexact_(latitude|longitude)\b' "$file" >/tmp/privacy-grep.txt; then
+                  privacy_hits="${privacy_hits}${file}\n$(cat /tmp/privacy-grep.txt)\n"
+                fi
+                ;;
+            esac
+
+            case "$file" in
+              .github/workflows/*|.gitlab/*|.gitlab/deploy/*|arborisis/config/*|arborisis/routes/api.php|arborisis/database/migrations/*)
+                echo "::warning file=${file}::Sensitive path changed; PR must explain impact and validation."
+                ;;
+            esac
+          done < /tmp/changed-files.txt
+
+          if [ -n "$env_violations" ]; then
+            printf "Forbidden environment files changed:\n%b" "$env_violations"
+            exit 1
+          fi
+
+          if [ -n "$large_files" ]; then
+            printf "Large files detected. Commit only intentional assets:\n%b" "$large_files"
+            exit 1
+          fi
+
+          if [ -n "$debug_hits" ]; then
+            printf "Frontend debug traces detected:\n%b" "$debug_hits"
+            exit 1
+          fi
+
+          if [ -n "$privacy_hits" ]; then
+            printf "Exact GPS fields detected in public/API-facing files:\n%b" "$privacy_hits"
+            exit 1
+          fi
+
+  docker-build-check:
+    name: Docker build verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build App image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Dev image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.dev
+          push: false
+          platforms: linux/amd64
+          cache-from: type=gha
+
+  summary:
+    name: CI summary
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - backend-quality
+      - frontend-quality
+      - python-tests
+      - security-audit
+      - architecture-guard
+      - docker-build-check
+
+    steps:
+      - name: Write summary
+        run: |
+          {
+            echo "## Arborisis CI summary"
+            echo ""
+            echo "| Job | Result |"
+            echo "| --- | --- |"
+            echo "| Backend quality | ${{ needs.backend-quality.result }} |"
+            echo "| Frontend quality | ${{ needs.frontend-quality.result }} |"
+            echo "| Python audio tests | ${{ needs.python-tests.result }} |"
+            echo "| Security audit | ${{ needs.security-audit.result }} |"
+            echo "| Architecture guard | ${{ needs.architecture-guard.result }} |"
+            echo "| Docker build check | ${{ needs.docker-build-check.result }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on critical job failure
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1

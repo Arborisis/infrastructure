@@ -1,0 +1,136 @@
+stages:
+  - quality
+  - test
+  - build
+  - deploy
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+variables:
+  APP_DIR: arborisis
+  PHP_VERSION: "8.4"
+  NODE_VERSION: "22"
+  PYTHON_VERSION: "3.10"
+  DEPLOY_PORT: "22"
+  DEPLOY_KEEP_RELEASES: "5"
+  COMPOSER_CACHE_DIR: "$CI_PROJECT_DIR/.cache/composer"
+  NPM_CONFIG_CACHE: "$CI_PROJECT_DIR/.cache/npm"
+  APP_ENV: testing
+  APP_DEBUG: "false"
+  CACHE_STORE: array
+  DB_CONNECTION: sqlite
+  DB_DATABASE: ":memory:"
+  MAIL_MAILER: array
+  QUEUE_CONNECTION: sync
+  SESSION_DRIVER: array
+
+.php_job:
+  image: php:${PHP_VERSION}-cli
+  cache:
+    key:
+      files:
+        - arborisis/composer.lock
+    paths:
+      - .cache/composer/
+      - ${APP_DIR}/vendor/
+  before_script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends git unzip libicu-dev libzip-dev libsqlite3-dev ffmpeg python3 python3-pip python3-venv
+    - docker-php-ext-install intl pdo_sqlite zip
+    - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+    - cd "$APP_DIR"
+    - cp .env.example .env
+    - composer install --prefer-dist --no-interaction --no-progress
+    - php artisan key:generate
+    - python3 -m venv python/venv
+    - python/venv/bin/pip install --upgrade pip
+    - python/venv/bin/pip install -r python/requirements.txt
+
+composer:
+  extends: .php_job
+  stage: quality
+  script:
+    - composer validate --strict
+
+pint:
+  extends: .php_job
+  stage: quality
+  allow_failure: true
+  script:
+    - ./vendor/bin/pint --test || true
+
+php_tests:
+  extends: .php_job
+  stage: test
+  script:
+    - php artisan test --colors=always
+
+python_tests:
+  image: python:${PYTHON_VERSION}-slim
+  stage: test
+  cache:
+    key:
+      files:
+        - arborisis/python/requirements.txt
+    paths:
+      - .cache/pip/
+  before_script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends ffmpeg
+    - pip install --cache-dir .cache/pip -r "${APP_DIR}/python/requirements.txt"
+  script:
+    - cd "${APP_DIR}/python"
+    - python -m pytest tests/ -v
+
+frontend_build:
+  image: node:${NODE_VERSION}-alpine
+  stage: build
+  cache:
+    key:
+      files:
+        - arborisis/package-lock.json
+    paths:
+      - .cache/npm/
+      - ${APP_DIR}/node_modules/
+  before_script:
+    - cd "$APP_DIR"
+    - npm ci
+  script:
+    - npm run build
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - ${APP_DIR}/public/build/
+
+deploy_production:
+  image: alpine:3.20
+  stage: deploy
+  resource_group: production
+  needs:
+    - job: php_tests
+    - job: python_tests
+    - job: frontend_build
+      artifacts: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+    - when: never
+  environment:
+    name: production
+    url: https://arborisis.com
+  before_script:
+    - apk add --no-cache openssh-client rsync
+    - test -n "$DEPLOY_HOST"
+    - test -n "$DEPLOY_USER"
+    - test -n "$DEPLOY_PATH"
+    - test -n "$SSH_PRIVATE_KEY"
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+    - chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+  script:
+    - sh .gitlab/deploy/deploy.sh

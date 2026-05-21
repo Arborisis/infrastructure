@@ -1,0 +1,130 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Brussels
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: ci
+      include: scope
+
+  - package-ecosystem: composer
+    directory: /arborisis
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:30"
+      timezone: Europe/Brussels
+    open-pull-requests-limit: 5
+    groups:
+      laravel:
+        patterns:
+          - laravel/*
+          - inertiajs/*
+          - filament/*
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: npm
+    directory: /arborisis
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Brussels
+    open-pull-requests-limit: 5
+    groups:
+      frontend:
+        patterns:
+          - "@inertiajs/*"
+          - "@vitejs/*"
+          - vite
+          - vue
+          - tailwindcss
+          - pinia
+          - wavesurfer.js
+          - leaflet
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: npm
+    directory: /discord-bot
+
+  - package-ecosystem: pip
+    directory: /services/python-analysis
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:30"
+      timezone: Europe/Brussels
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: npm
+    directory: /discord-bot
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:30"
+      timezone: Europe/Brussels
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: npm
+    directory: /workers/arborisis-ai-agent
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:00"
+      timezone: Europe/Brussels
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: npm
+    directory: /workers/audio-analysis-orchestrator
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:15"
+      timezone: Europe/Brussels
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: npm
+    directory: /workers/audio-analyzer-container
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:30"
+      timezone: Europe/Brussels
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: npm
+    directory: /workers/r2-proxy
+    schedule:
+      interval: weekly
+      day: monday
+      time: "08:45"
+      timezone: Europe/Brussels
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore
+      include: scope

@@ -1,0 +1,101 @@
+version: "3.9"
+
+# Infrastructure VPS Worker — Audio Analyzer (multi-instance)
+# Déploie 3 replicas du service Python derrière un load balancer Nginx.
+# Le Cloudflare Worker appelle l'URL du VPS (port 80) qui répartit la charge.
+#
+# Pour scaler : copier le bloc analyzer-N, ajouter le volume correspondant,
+# et mettre à jour nginx/nginx.conf.
+
+services:
+  analyzer-1:
+    build:
+      context: ../../services/audio-analyzer
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - analyzer-tmp-1:/tmp/analyzer
+    restart: unless-stopped
+    networks:
+      - analyzer-network
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  analyzer-2:
+    build:
+      context: ../../services/audio-analyzer
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - analyzer-tmp-2:/tmp/analyzer
+    restart: unless-stopped
+    networks:
+      - analyzer-network
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  analyzer-3:
+    build:
+      context: ../../services/audio-analyzer
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - analyzer-tmp-3:/tmp/analyzer
+    restart: unless-stopped
+    networks:
+      - analyzer-network
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped
+    networks:
+      - analyzer-network
+    depends_on:
+      - analyzer-1
+      - analyzer-2
+      - analyzer-3
+
+networks:
+  analyzer-network:
+    driver: bridge
+
+volumes:
+  analyzer-tmp-1:
+  analyzer-tmp-2:
+  analyzer-tmp-3:

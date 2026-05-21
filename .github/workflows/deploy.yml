@@ -1,0 +1,201 @@
+# =============================================================================
+# Arborisis — Deploy Production (Manual)
+# =============================================================================
+# Déclenchement manuel uniquement.
+# Déploie les images GHCR vers un serveur distant via SSH.
+# =============================================================================
+
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Deploy or rollback
+        required: true
+        default: deploy
+        type: choice
+        options:
+          - deploy
+          - rollback
+      rollback_release:
+        description: Release directory for rollback (empty = previous)
+        required: false
+        type: string
+      image_tag:
+        description: Docker image tag to deploy (default = latest)
+        required: false
+        default: latest
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: bastienjavx
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event.inputs.action == 'deploy'
+    environment:
+      name: production
+      url: ${{ secrets.APP_URL }}
+
+    steps:
+      - name: Refuse non-main deployments
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Production deploys are allowed only from main."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_PRIVATE_KEY"
+          test -n "$SSH_HOST"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${SSH_PORT:-22}" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy via Docker Compose
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_USER"
+          test -n "$DEPLOY_PATH"
+
+          ssh -p "${SSH_PORT:-22}" "$SSH_USER@$SSH_HOST" 'sh -s' -- "$DEPLOY_PATH" "$IMAGE_TAG" <<'REMOTE'
+          set -eu
+          deploy_path="${1:?DEPLOY_PATH missing}"
+          image_tag="${2:-latest}"
+
+          cd "$deploy_path"
+
+          # Mettre en maintenance
+          docker compose -f docker-compose.yml exec -T app php artisan down --retry=60 || true
+
+          # Pull des nouvelles images
+          export IMAGE_TAG="$image_tag"
+          docker compose -f docker-compose.yml pull
+
+          # Redémarrer les services
+          docker compose -f docker-compose.yml up -d --remove-orphans
+
+          # Migrations
+          docker compose -f docker-compose.yml exec -T app php artisan migrate --force --ansi || true
+
+          # Optimisations
+          docker compose -f docker-compose.yml exec -T app php artisan optimize --ansi || true
+          docker compose -f docker-compose.yml exec -T app php artisan queue:restart --ansi || true
+
+          # Nettoyage
+          docker system prune -f
+
+          # Sortir de maintenance
+          docker compose -f docker-compose.yml exec -T app php artisan up || true
+
+          echo "Deploy completed with tag: $image_tag"
+          REMOTE
+
+      - name: Verify deployment
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          sleep 5
+          curl -sf "${APP_URL}/health" || exit 1
+          echo "Healthcheck passed."
+
+  rollback:
+    name: Rollback Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event.inputs.action == 'rollback'
+    environment:
+      name: production
+      url: ${{ secrets.APP_URL }}
+
+    steps:
+      - name: Refuse non-main rollbacks
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Production rollback is allowed only from main."
+            exit 1
+          fi
+
+      - name: Prepare SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_PRIVATE_KEY"
+          test -n "$SSH_HOST"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${SSH_PORT:-22}" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Rollback Docker images
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          ROLLBACK_TAG: ${{ github.event.inputs.rollback_release }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_USER"
+          test -n "$DEPLOY_PATH"
+
+          ssh -p "${SSH_PORT:-22}" "$SSH_USER@$SSH_HOST" 'sh -s' -- "$DEPLOY_PATH" "$ROLLBACK_TAG" <<'REMOTE'
+          set -eu
+          deploy_path="${1:?DEPLOY_PATH missing}"
+          rollback_tag="${2:-latest}"
+
+          cd "$deploy_path"
+
+          docker compose -f docker-compose.yml exec -T app php artisan down --retry=60 || true
+
+          export IMAGE_TAG="$rollback_tag"
+          docker compose -f docker-compose.yml pull
+          docker compose -f docker-compose.yml up -d --remove-orphans
+
+          docker compose -f docker-compose.yml exec -T app php artisan optimize:clear --ansi || true
+          docker compose -f docker-compose.yml exec -T app php artisan queue:restart --ansi || true
+          docker compose -f docker-compose.yml exec -T app php artisan up || true
+
+          echo "Rollback completed to tag: $rollback_tag"
+          REMOTE

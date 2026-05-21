@@ -1,0 +1,254 @@
+{
+  "monitors": [
+    {
+      "name": "Laravel Health Check",
+      "type": "http",
+      "url": "https://arborisis.com/api/health",
+      "method": "GET",
+      "interval": 60,
+      "retryInterval": 30,
+      "resendInterval": 0,
+      "maxretries": 3,
+      "timeout": 10,
+      "expiryNotification": true,
+      "ignoreTls": false,
+      " upsideDown": false,
+      "accepted_statuscodes": ["200-299"],
+      "description": "Health check complet Laravel : DB, Redis, S3, disque"
+    },
+    {
+      "name": "Landing Page",
+      "type": "http",
+      "url": "https://arborisis.com/",
+      "method": "GET",
+      "interval": 120,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 15,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "Sounds Page",
+      "type": "http",
+      "url": "https://arborisis.com/sounds",
+      "method": "GET",
+      "interval": 120,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 15,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "Map Page",
+      "type": "http",
+      "url": "https://arborisis.com/map",
+      "method": "GET",
+      "interval": 120,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 15,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "API — Map Sounds",
+      "type": "http",
+      "url": "https://arborisis.com/api/map/sounds",
+      "method": "GET",
+      "interval": 60,
+      "retryInterval": 30,
+      "maxretries": 3,
+      "timeout": 10,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "API — Map Search",
+      "type": "http",
+      "url": "https://arborisis.com/api/map/sounds/search",
+      "method": "GET",
+      "interval": 120,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 10,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "Radio Page",
+      "type": "http",
+      "url": "https://arborisis.com/radio",
+      "method": "GET",
+      "interval": 120,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 15,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "API — Radio Now Playing",
+      "type": "http",
+      "url": "https://arborisis.com/api/radio/now-playing",
+      "method": "GET",
+      "interval": 60,
+      "retryInterval": 30,
+      "maxretries": 3,
+      "timeout": 10,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "Creators Page",
+      "type": "http",
+      "url": "https://arborisis.com/creators",
+      "method": "GET",
+      "interval": 120,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 15,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "API — Scientific Stats (Global)",
+      "type": "http",
+      "url": "https://arborisis.com/api/scientific-stats/global",
+      "method": "GET",
+      "interval": 120,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 10,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "API — Arborisis Points",
+      "type": "http",
+      "url": "https://arborisis.com/api/arborisis-points",
+      "method": "GET",
+      "interval": 120,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 10,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "API — Quests",
+      "type": "http",
+      "url": "https://arborisis.com/api/quests",
+      "method": "GET",
+      "interval": 120,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 10,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "API — Achievements",
+      "type": "http",
+      "url": "https://arborisis.com/api/achievements",
+      "method": "GET",
+      "interval": 120,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 10,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "API — Medals",
+      "type": "http",
+      "url": "https://arborisis.com/api/medals",
+      "method": "GET",
+      "interval": 120,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 10,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "API — Map Presence",
+      "type": "http",
+      "url": "https://arborisis.com/api/map/presence",
+      "method": "GET",
+      "interval": 120,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 10,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "Transparency Page",
+      "type": "http",
+      "url": "https://arborisis.com/transparency",
+      "method": "GET",
+      "interval": 300,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 15,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "Auth — Login Page",
+      "type": "http",
+      "url": "https://arborisis.com/login",
+      "method": "GET",
+      "interval": 300,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 15,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "Contact Page",
+      "type": "http",
+      "url": "https://arborisis.com/contact",
+      "method": "GET",
+      "interval": 300,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 15,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "Mission Page",
+      "type": "http",
+      "url": "https://arborisis.com/mission",
+      "method": "GET",
+      "interval": 300,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 15,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "ECHO Info Page",
+      "type": "http",
+      "url": "https://arborisis.com/echo",
+      "method": "GET",
+      "interval": 300,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 15,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "API — VAPID Public Key",
+      "type": "http",
+      "url": "https://arborisis.com/api/vapid-public-key",
+      "method": "GET",
+      "interval": 300,
+      "retryInterval": 60,
+      "maxretries": 3,
+      "timeout": 10,
+      "accepted_statuscodes": ["200-299"]
+    },
+    {
+      "name": "Discord Bot Internal API",
+      "type": "http",
+      "url": "https://arborisis.com/api/internal/discord/stats",
+      "method": "GET",
+      "interval": 60,
+      "retryInterval": 30,
+      "maxretries": 3,
+      "timeout": 10,
+      "headers": {
+        "X-Internal-Token": "${DISCORD_INTERNAL_API_TOKEN}"
+      },
+      "accepted_statuscodes": ["200-299"]
+    }
+  ]
+}

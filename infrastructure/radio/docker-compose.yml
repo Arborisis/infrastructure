@@ -1,0 +1,39 @@
+services:
+  icecast:
+    image: moul/icecast
+    container_name: arborisis-icecast
+    restart: unless-stopped
+    ports:
+      - "${ICECAST_BIND:-127.0.0.1}:${ICECAST_PUBLIC_PORT:-8010}:8000"
+    environment:
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
+      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD}
+      ICECAST_RELAY_PASSWORD: ${ICECAST_RELAY_PASSWORD:-relay}
+      ICECAST_HOSTNAME: ${ICECAST_HOSTNAME:-localhost}
+      ICECAST_LOCATION: ${ICECAST_LOCATION:-Arborisis}
+      ICECAST_ADMIN: ${ICECAST_ADMIN_EMAIL:-contact@arborisis.com}
+
+  liquidsoap:
+    image: savonet/liquidsoap:v2.2.5
+    container_name: arborisis-liquidsoap
+    restart: unless-stopped
+    depends_on:
+      - icecast
+    volumes:
+      - ./liquidsoap:/radio:ro
+      - ../../arborisis/storage/app/radio-cache:/radio-cache:ro
+      - liquidsoap-cache:/tmp/arborisis-radio
+    environment:
+      LARAVEL_BASE_URL: ${LARAVEL_BASE_URL:-http://host.docker.internal}
+      RADIO_INTERNAL_TOKEN: ${RADIO_INTERNAL_TOKEN}
+      ICECAST_HOST: ${ICECAST_HOST:-icecast}
+      ICECAST_PORT: ${ICECAST_PORT:-8000}
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
+      ICECAST_MOUNT: ${ICECAST_MOUNT:-/arborisis.mp3}
+      RADIO_CROSSFADE_SECONDS: ${RADIO_CROSSFADE_SECONDS:-4}
+    extra_hosts:
+      - "arborisis.com:172.19.0.1"
+    command: ["liquidsoap", "/radio/arborisis.liq"]
+
+volumes:
+  liquidsoap-cache:

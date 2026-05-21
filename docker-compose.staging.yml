@@ -1,0 +1,169 @@
+# =============================================================================
+# Arborisis — Docker Compose Staging
+# =============================================================================
+# Usage : docker compose -f docker-compose.staging.yml up -d
+# Replica de la production avec variables d'environnement staging
+# =============================================================================
+
+name: arborisis-staging
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: ghcr.io/bastienjavx/arborisis-app:staging
+    container_name: arborisis-staging-app
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+    environment:
+      APP_ENV: staging
+      APP_DEBUG: "false"
+      DB_HOST: db
+      DB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SESSION_DRIVER: redis
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      BROADCAST_CONNECTION: reverb
+      LOG_CHANNEL: stderr
+    volumes:
+      - app-storage-staging:/var/www/html/storage
+      - app-logs-staging:/var/www/html/storage/logs
+    networks:
+      - arborisis-staging
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:alpine
+    container_name: arborisis-staging-nginx
+    restart: unless-stopped
+    ports:
+      - "${STAGING_PORT:-8080}:80"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - app-storage-staging:/var/www/html/storage
+    networks:
+      - arborisis-staging
+    depends_on:
+      - app
+
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: arborisis-staging-db
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-arborisis_staging}
+      POSTGRES_USER: ${DB_USERNAME:-arborisis}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-staging_secret}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data-staging:/var/lib/postgresql/data
+    networks:
+      - arborisis-staging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-arborisis} -d ${DB_DATABASE:-arborisis_staging}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: arborisis-staging-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data-staging:/data
+    networks:
+      - arborisis-staging
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  queue:
+    image: ghcr.io/bastienjavx/arborisis-app:staging
+    container_name: arborisis-staging-queue
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+    environment:
+      APP_ENV: staging
+      APP_DEBUG: "false"
+      DB_HOST: db
+      REDIS_HOST: redis
+      SESSION_DRIVER: redis
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      LOG_CHANNEL: stderr
+      CONTAINER_SKIP_OPTIMIZE: "true"
+      CONTAINER_STORAGE_LINK: "false"
+    volumes:
+      - app-storage-staging:/var/www/html/storage
+      - app-logs-staging:/var/www/html/storage/logs
+    networks:
+      - arborisis-staging
+    depends_on:
+      - app
+      - db
+      - redis
+    command: ["/usr/local/bin/arborisis-entrypoint-queue"]
+
+  scheduler:
+    image: ghcr.io/bastienjavx/arborisis-app:staging
+    container_name: arborisis-staging-scheduler
+    restart: unless-stopped
+    env_file:
+      - .env.staging
+    environment:
+      APP_ENV: staging
+      APP_DEBUG: "false"
+      DB_HOST: db
+      REDIS_HOST: redis
+      SESSION_DRIVER: redis
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      LOG_CHANNEL: stderr
+      CONTAINER_SKIP_OPTIMIZE: "true"
+      CONTAINER_STORAGE_LINK: "false"
+    volumes:
+      - app-storage-staging:/var/www/html/storage
+      - app-logs-staging:/var/www/html/storage/logs
+      - scheduler-logs-staging:/var/log
+    networks:
+      - arborisis-staging
+    depends_on:
+      - app
+      - db
+      - redis
+    command: ["/usr/local/bin/arborisis-entrypoint-scheduler"]
+
+volumes:
+  postgres-data-staging:
+    driver: local
+  redis-data-staging:
+    driver: local
+  app-storage-staging:
+    driver: local
+  app-logs-staging:
+    driver: local
+  scheduler-logs-staging:
+    driver: local
+
+networks:
+  arborisis-staging:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
