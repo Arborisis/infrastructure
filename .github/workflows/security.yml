@@ -67,8 +67,15 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - name: Checkout
+      - name: Checkout infrastructure
         uses: actions/checkout@v4
+
+      - name: Checkout app source
+        uses: actions/checkout@v4
+        with:
+          repository: Arborisis/app
+          path: arborisis
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -127,8 +134,15 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Checkout
+      - name: Checkout infrastructure
         uses: actions/checkout@v4
+
+      - name: Checkout app source
+        uses: actions/checkout@v4
+        with:
+          repository: Arborisis/app
+          path: arborisis
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Block exact GPS fields in public surfaces
         run: |
