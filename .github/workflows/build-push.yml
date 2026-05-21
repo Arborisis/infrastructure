@@ -92,9 +92,6 @@ jobs:
     name: Build & Push Nginx Image
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # FIXME: No Dockerfile exists for nginx in this repository.
-    # This job is disabled until a Dockerfile is added to docker/nginx/.
-    if: false
 
     steps:
       - name: Checkout
