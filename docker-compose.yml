@@ -15,7 +15,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    image: ghcr.io/bastienjavx/arborisis-app:latest
+    image: ghcr.io/Arborisis/app:latest
     container_name: arborisis-app
     restart: unless-stopped
     env_file:
@@ -123,7 +123,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    image: ghcr.io/bastienjavx/arborisis-app:latest
+    image: ghcr.io/Arborisis/app:latest
     container_name: arborisis-queue
     restart: unless-stopped
     env_file:
@@ -160,7 +160,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    image: ghcr.io/bastienjavx/arborisis-app:latest
+    image: ghcr.io/Arborisis/app:latest
     container_name: arborisis-scheduler
     restart: unless-stopped
     env_file:
@@ -192,10 +192,7 @@ services:
   # Discord Bot
   # ---------------------------------------------------------------------------
   discord-bot:
-    build:
-      context: ./discord-bot
-      dockerfile: Dockerfile
-    image: ghcr.io/bastienjavx/arborisis-discord-bot:latest
+    image: ghcr.io/Arborisis/discord-bot:latest
     container_name: arborisis-discord-bot
     restart: unless-stopped
     env_file:
@@ -211,10 +208,7 @@ services:
   # Python Audio Analysis Service
   # ---------------------------------------------------------------------------
   python-analyzer:
-    build:
-      context: ./services/python-analysis
-      dockerfile: Dockerfile
-    image: ghcr.io/bastienjavx/arborisis-python-analyzer:latest
+    image: ghcr.io/Arborisis/audio-services:latest
     container_name: arborisis-python-analyzer
     restart: unless-stopped
     env_file:
