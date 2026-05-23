@@ -92,15 +92,15 @@ jobs:
           mkdir -p bootstrap/cache
           chmod -R 775 storage bootstrap/cache
 
-      - name: Prepare Laravel environment
-        working-directory: ${{ env.APP_DIR }}
-        run: |
-          cp .env.example .env || true
-          php artisan key:generate --ansi || true
-
       - name: Install PHP dependencies
         working-directory: ${{ env.APP_DIR }}
         run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare Laravel environment
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
 
       - name: Composer audit
         working-directory: ${{ env.APP_DIR }}
