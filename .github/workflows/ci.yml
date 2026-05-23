@@ -43,6 +43,8 @@ jobs:
         run: |
           for file in .github/workflows/*.yml; do
             echo "Validating $file"
+            # Basic YAML syntax check
+            python3 -c "import yaml; yaml.safe_load(open('$file'))" || exit 1
           done
 
   docker-build-check:

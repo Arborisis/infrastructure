@@ -111,6 +111,20 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Checkout discord-bot source
+        uses: actions/checkout@v4
+        with:
+          repository: Arborisis/discord-bot
+          path: discord-bot
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workers source
+        uses: actions/checkout@v4
+        with:
+          repository: Arborisis/workers
+          path: workers
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: NPM audit production dependencies
         run: |
           set -euo pipefail
@@ -119,6 +133,8 @@ jobs:
               echo "Auditing $project"
               npm ci --prefix "$project" --ignore-scripts
               npm audit --prefix "$project" --omit=dev --audit-level=high
+            else
+              echo "Skipping $project (no package.json or package-lock.json)"
             fi
           done
 
