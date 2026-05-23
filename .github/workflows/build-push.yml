@@ -32,7 +32,7 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  OWNER: bastienjavx
+  OWNER: Arborisis
 
 jobs:
   build-push-app:
@@ -41,8 +41,15 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Checkout
+      - name: Checkout infrastructure
         uses: actions/checkout@v4
+
+      - name: Checkout app source
+        uses: actions/checkout@v4
+        with:
+          repository: Arborisis/app
+          path: arborisis
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -130,8 +137,15 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Checkout
+      - name: Checkout infrastructure
         uses: actions/checkout@v4
+
+      - name: Checkout discord-bot source
+        uses: actions/checkout@v4
+        with:
+          repository: Arborisis/discord-bot
+          path: discord-bot
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -172,8 +186,15 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - name: Checkout
+      - name: Checkout infrastructure
         uses: actions/checkout@v4
+
+      - name: Checkout audio-services source
+        uses: actions/checkout@v4
+        with:
+          repository: Arborisis/audio-services
+          path: services
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -199,8 +220,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ./services/python-analysis
-          file: ./services/python-analysis/Dockerfile
+          context: ./services/audio-analyzer
+          file: ./services/audio-analyzer/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}

@@ -25,7 +25,10 @@ RUN apk add --no-cache \
     libpng-dev \
     libpq-dev \
     libzip-dev \
+    linux-headers \
     unzip \
+    build-base \
+    autoconf \
     # GD dependencies
     libjpeg-turbo-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
