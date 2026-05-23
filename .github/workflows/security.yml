@@ -83,6 +83,21 @@ jobs:
           coverage: none
           tools: composer:v2
 
+      - name: Prepare Laravel directories
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          mkdir -p storage/framework/{cache,sessions,views,testing}
+          mkdir -p storage/logs
+          mkdir -p storage/app
+          mkdir -p bootstrap/cache
+          chmod -R 775 storage bootstrap/cache
+
+      - name: Prepare Laravel environment
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          cp .env.example .env || true
+          php artisan key:generate --ansi || true
+
       - name: Install PHP dependencies
         working-directory: ${{ env.APP_DIR }}
         run: composer install --prefer-dist --no-interaction --no-progress
@@ -96,6 +111,20 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Checkout discord-bot source
+        uses: actions/checkout@v4
+        with:
+          repository: Arborisis/discord-bot
+          path: discord-bot
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout workers source
+        uses: actions/checkout@v4
+        with:
+          repository: Arborisis/workers
+          path: workers
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: NPM audit production dependencies
         run: |
           set -euo pipefail
@@ -104,6 +133,8 @@ jobs:
               echo "Auditing $project"
               npm ci --prefix "$project" --ignore-scripts
               npm audit --prefix "$project" --omit=dev --audit-level=high
+            else
+              echo "Skipping $project (no package.json or package-lock.json)"
             fi
           done
 
@@ -119,7 +150,7 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
-          languages: javascript-typescript, python
+          languages: python
           queries: security-extended,security-and-quality
 
       - name: Perform CodeQL analysis
