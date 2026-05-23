@@ -25,6 +25,7 @@ RUN apk add --no-cache \
     libpng-dev \
     libpq-dev \
     libzip-dev \
+    linux-headers \
     unzip \
     # GD dependencies
     libjpeg-turbo-dev \
