@@ -21,9 +21,12 @@ RUN apk add --no-cache \
     libpng-dev \
     libpq-dev \
     libzip-dev \
+    linux-headers \
     unzip \
     libjpeg-turbo-dev \
     bash \
+    build-base \
+    autoconf \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" \
         bcmath \
